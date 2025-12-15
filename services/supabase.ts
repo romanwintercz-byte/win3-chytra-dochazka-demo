@@ -1,195 +1,224 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Employee, Job, TimeEntry, MonthStatus, TimesheetStatus, Notification } from '../types';
-import { CREDENTIALS } from '../credentials';
+import { MOCK_EMPLOYEES, MOCK_JOBS, MOCK_ENTRIES } from './mockData';
 
-// --- STANDARD PRODUCTION CLIENT ---
+// --- FAKE SUPABASE SERVICE (LOCAL STORAGE ONLY) ---
+// This completely replaces the backend for the demo version.
 
-let client: SupabaseClient;
+const LS_KEYS = {
+    EMPLOYEES: 'smartwork_demo_employees',
+    JOBS: 'smartwork_demo_jobs',
+    ENTRIES: 'smartwork_demo_entries',
+    REPORTS: 'smartwork_demo_reports',
+    NOTIFICATIONS: 'smartwork_demo_notifications'
+};
 
-if (!CREDENTIALS.SUPABASE_URL || !CREDENTIALS.SUPABASE_KEY) {
-    console.error("CRITICAL ERROR: Supabase URL or Key is missing in Environment Variables!");
-    // Fallback to prevent immediate crash, but calls will fail
-    client = createClient('https://placeholder.supabase.co', 'placeholder');
-} else {
-    client = createClient(CREDENTIALS.SUPABASE_URL, CREDENTIALS.SUPABASE_KEY, {
-        auth: { persistSession: false }, 
-        realtime: { params: { eventsPerSecond: 10 } }
-    });
+// Helper to simulate network latency
+const delay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to initialize data if empty
+const initializeDemoData = () => {
+    if (!localStorage.getItem(LS_KEYS.EMPLOYEES)) {
+        localStorage.setItem(LS_KEYS.EMPLOYEES, JSON.stringify(MOCK_EMPLOYEES));
+    }
+    if (!localStorage.getItem(LS_KEYS.JOBS)) {
+        localStorage.setItem(LS_KEYS.JOBS, JSON.stringify(MOCK_JOBS));
+    }
+    if (!localStorage.getItem(LS_KEYS.ENTRIES)) {
+        localStorage.setItem(LS_KEYS.ENTRIES, JSON.stringify(MOCK_ENTRIES));
+    }
+    // Reports and notifications start empty
+};
+
+// Initialize on load
+if (typeof window !== 'undefined') {
+    initializeDemoData();
 }
 
-export const supabase = client;
+export const resetDemoData = () => {
+    localStorage.clear();
+    initializeDemoData();
+    window.location.reload();
+};
 
-// --- API Functions (Pure Supabase) ---
-
+// --- EMPLOYEES ---
 export const fetchEmployees = async (): Promise<Employee[]> => {
-  const { data, error } = await supabase.from('employees').select('*').order('name'); 
-  if (error) throw error;
-  return data.map((e: any) => ({ ...e, isActive: e.is_active !== false, pinCode: e.pin_code })) as Employee[];
+    await delay();
+    const data = localStorage.getItem(LS_KEYS.EMPLOYEES);
+    return data ? JSON.parse(data) : MOCK_EMPLOYEES;
 };
 
 export const addEmployee = async (employee: Employee) => {
-  const { error } = await supabase.from('employees').insert({ id: employee.id, name: employee.name, email: employee.email, role: employee.role, avatar: employee.avatar, is_active: true });
-  if (error) throw error;
+    await delay();
+    const emps = JSON.parse(localStorage.getItem(LS_KEYS.EMPLOYEES) || '[]');
+    emps.push({ ...employee, isActive: true });
+    localStorage.setItem(LS_KEYS.EMPLOYEES, JSON.stringify(emps));
 };
 
 export const updateEmployee = async (employee: Employee) => {
-  const { error } = await supabase.from('employees').update({ name: employee.name, email: employee.email, role: employee.role }).eq('id', employee.id);
-  if (error) throw error;
+    await delay();
+    const emps = JSON.parse(localStorage.getItem(LS_KEYS.EMPLOYEES) || '[]') as Employee[];
+    const idx = emps.findIndex(e => e.id === employee.id);
+    if (idx !== -1) {
+        emps[idx] = employee;
+        localStorage.setItem(LS_KEYS.EMPLOYEES, JSON.stringify(emps));
+    }
 };
 
 export const updateEmployeeStatus = async (id: string, isActive: boolean) => {
-  const { error } = await supabase.from('employees').update({ is_active: isActive }).eq('id', id);
-  if (error) throw error;
+    await delay();
+    const emps = JSON.parse(localStorage.getItem(LS_KEYS.EMPLOYEES) || '[]') as Employee[];
+    const idx = emps.findIndex(e => e.id === id);
+    if (idx !== -1) {
+        emps[idx].isActive = isActive;
+        localStorage.setItem(LS_KEYS.EMPLOYEES, JSON.stringify(emps));
+    }
 };
 
 export const updateEmployeePin = async (id: string, pin: string | null) => {
-    const { error } = await supabase.from('employees').update({ pin_code: pin }).eq('id', id);
-    if (error) throw error;
+    // No-op in demo
 };
 
+// --- JOBS ---
 export const fetchJobs = async (): Promise<Job[]> => {
-  const { data, error } = await supabase.from('jobs').select('*').order('code');
-  if (error) throw error;
-  return data.map((j: any) => ({ id: j.id, code: j.code, name: j.name, isActive: j.is_active })) as Job[];
+    await delay();
+    const data = localStorage.getItem(LS_KEYS.JOBS);
+    return data ? JSON.parse(data) : MOCK_JOBS;
 };
 
 export const addJob = async (job: Job) => {
-  const { error } = await supabase.from('jobs').insert({ id: job.id, code: job.code, name: job.name, is_active: job.isActive });
-  if (error) throw error;
+    await delay();
+    const jobs = JSON.parse(localStorage.getItem(LS_KEYS.JOBS) || '[]');
+    jobs.push(job);
+    localStorage.setItem(LS_KEYS.JOBS, JSON.stringify(jobs));
 };
 
 export const updateJobStatus = async (id: string, isActive: boolean) => {
-    const { error } = await supabase.from('jobs').update({ is_active: isActive }).eq('id', id);
-    if (error) throw error;
+    await delay();
+    const jobs = JSON.parse(localStorage.getItem(LS_KEYS.JOBS) || '[]') as Job[];
+    const idx = jobs.findIndex(j => j.id === id);
+    if (idx !== -1) {
+        jobs[idx].isActive = isActive;
+        localStorage.setItem(LS_KEYS.JOBS, JSON.stringify(jobs));
+    }
 };
 
+// --- TIME ENTRIES ---
 export const fetchTimeEntries = async (): Promise<TimeEntry[]> => {
-  const { data, error } = await supabase.from('time_entries').select('*').order('date', { ascending: false });
-  if (error) throw error;
-  return data.map((e: any) => ({ id: e.id, employeeId: e.employee_id, date: e.date, project: e.project, description: e.description, hours: e.hours, type: e.type, attachmentUrl: e.attachment_url })) as TimeEntry[];
+    await delay();
+    const data = localStorage.getItem(LS_KEYS.ENTRIES);
+    return data ? JSON.parse(data) : MOCK_ENTRIES;
 };
 
-export const addTimeEntriesBulk = async (entries: TimeEntry[]) => {
-    const dbEntries = entries.map(entry => ({ id: entry.id, employee_id: entry.employeeId, date: entry.date, project: entry.project, description: entry.description, hours: entry.hours, type: entry.type, attachment_url: entry.attachmentUrl }));
-    const { error } = await supabase.from('time_entries').insert(dbEntries);
-    if (error) throw error;
+export const addTimeEntriesBulk = async (newEntries: TimeEntry[]) => {
+    await delay();
+    const entries = JSON.parse(localStorage.getItem(LS_KEYS.ENTRIES) || '[]');
+    // Prepend new entries (simple implementation)
+    const updated = [...newEntries, ...entries];
+    localStorage.setItem(LS_KEYS.ENTRIES, JSON.stringify(updated));
 };
 
 export const deleteTimeEntriesForDate = async (employeeId: string, date: string) => {
-    const { error } = await supabase.from('time_entries').delete().eq('employee_id', employeeId).eq('date', date);
-    if (error) throw error;
+    await delay();
+    let entries = JSON.parse(localStorage.getItem(LS_KEYS.ENTRIES) || '[]') as TimeEntry[];
+    entries = entries.filter(e => !(e.employeeId === employeeId && e.date === date));
+    localStorage.setItem(LS_KEYS.ENTRIES, JSON.stringify(entries));
 };
 
 export const deleteTimeEntry = async (id: string) => {
-    const { error } = await supabase.from('time_entries').delete().eq('id', id);
-    if (error) throw error;
+    await delay();
+    let entries = JSON.parse(localStorage.getItem(LS_KEYS.ENTRIES) || '[]') as TimeEntry[];
+    entries = entries.filter(e => e.id !== id);
+    localStorage.setItem(LS_KEYS.ENTRIES, JSON.stringify(entries));
 };
 
+// --- REPORTS ---
 export const fetchMonthlyReports = async (month: string): Promise<MonthStatus[]> => {
-    const { data, error } = await supabase.from('monthly_reports').select('*').eq('month', month);
-    if (error) return [];
-    return (data || []).map((r: any) => ({ employeeId: r.employee_id, month: r.month, status: r.status as TimesheetStatus, managerComment: r.manager_comment, updatedAt: r.updated_at }));
+    await delay();
+    const reports = JSON.parse(localStorage.getItem(LS_KEYS.REPORTS) || '[]') as MonthStatus[];
+    return reports.filter(r => r.month === month);
 };
 
 export const upsertMonthlyReport = async (report: MonthStatus) => {
-    const { error } = await supabase.from('monthly_reports').upsert({ employee_id: report.employeeId, month: report.month, status: report.status, manager_comment: report.managerComment, updated_at: new Date().toISOString() }, { onConflict: 'employee_id, month' });
-    if (error) throw error;
+    await delay();
+    let reports = JSON.parse(localStorage.getItem(LS_KEYS.REPORTS) || '[]') as MonthStatus[];
+    const idx = reports.findIndex(r => r.employeeId === report.employeeId && r.month === report.month);
+    if (idx !== -1) {
+        reports[idx] = { ...reports[idx], ...report };
+    } else {
+        reports.push(report);
+    }
+    localStorage.setItem(LS_KEYS.REPORTS, JSON.stringify(reports));
 };
 
+// --- LOCKS ---
 export const fetchGlobalLock = async (month: string): Promise<boolean> => {
-    const { data, error } = await supabase.from('global_locks').select('is_locked').eq('month', month).single();
-    if (error || !data) return false;
-    return data.is_locked;
+    return false; // Always unlocked in demo initially
 };
 
 export const toggleGlobalLock = async (month: string, isLocked: boolean, managerId: string) => {
-    const { error } = await supabase.from('global_locks').upsert({ month: month, is_locked: isLocked, locked_by: managerId, locked_at: new Date().toISOString() });
-    if (error) throw error;
+    // Just fake it for UI feedback
+    await delay();
 };
 
+// --- NOTIFICATIONS ---
 export const fetchNotifications = async (userId: string): Promise<Notification[]> => {
-    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (error) return [];
-    return (data || []).map((n: any) => ({ id: n.id, userId: n.user_id, senderId: n.sender_id, type: n.type, message: n.message, isRead: n.is_read, createdAt: n.created_at }));
+    await delay();
+    const all = JSON.parse(localStorage.getItem(LS_KEYS.NOTIFICATIONS) || '[]') as Notification[];
+    return all.filter(n => n.userId === userId);
 };
 
 export const createNotification = async (userId: string, message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', senderId?: string) => {
-    const payload: any = { user_id: userId, message: message, type: type, is_read: false };
-    if (senderId) payload.sender_id = senderId;
-    const { error } = await supabase.from('notifications').insert(payload);
-    if (error) console.error("Create Notification Error:", error.message);
+    const all = JSON.parse(localStorage.getItem(LS_KEYS.NOTIFICATIONS) || '[]') as Notification[];
+    all.unshift({
+        id: Math.random().toString(36).substr(2, 9),
+        userId,
+        message,
+        type,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        senderId
+    });
+    localStorage.setItem(LS_KEYS.NOTIFICATIONS, JSON.stringify(all));
 };
 
 export const createGlobalNotification = async (userIds: string[], message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
-    const notifications = userIds.map(id => ({ user_id: id, message: message, type: type, is_read: false }));
-    const { error } = await supabase.from('notifications').insert(notifications);
-    if (error) console.error("Global Notification Error:", error.message);
+    for (const uid of userIds) {
+        await createNotification(uid, message, type);
+    }
 };
 
 export const markNotificationAsRead = async (id: string) => {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    if (error) console.error("Mark Read Error:", error.message);
+    const all = JSON.parse(localStorage.getItem(LS_KEYS.NOTIFICATIONS) || '[]') as Notification[];
+    const idx = all.findIndex(n => n.id === id);
+    if (idx !== -1) {
+        all[idx].isRead = true;
+        localStorage.setItem(LS_KEYS.NOTIFICATIONS, JSON.stringify(all));
+    }
 };
 
 export const markAllNotificationsAsRead = async (userId: string) => {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId);
-    if (error) console.error("Mark All Read Error:", error.message);
+    const all = JSON.parse(localStorage.getItem(LS_KEYS.NOTIFICATIONS) || '[]') as Notification[];
+    const updated = all.map(n => n.userId === userId ? { ...n, isRead: true } : n);
+    localStorage.setItem(LS_KEYS.NOTIFICATIONS, JSON.stringify(updated));
 };
 
-export const subscribeToPresence = (userId: string, onSync: (onlineUserIds: string[]) => void) => {
-    const channel = supabase.channel('online-users');
-    channel
-        .on('presence', { event: 'sync' }, () => {
-            const state = channel.presenceState();
-            const ids = Object.keys(state);
-            onSync(ids);
-        })
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                await channel.track({ user: userId, online_at: new Date().toISOString() });
-            }
-        });
-        
-    return { 
-        unsubscribe: () => {
-            supabase.removeChannel(channel);
-        }
-    };
+// --- REALTIME (MOCKED) ---
+export const subscribeToPresence = (userId: string, onSync: (ids: string[]) => void) => {
+    // Fake presence: The current user + Random active employees
+    setTimeout(() => {
+        onSync([userId, 'manager-1', 'worker-1']);
+    }, 1000);
+    return { unsubscribe: () => {} };
 };
 
 export const subscribeToNotifications = (userId: string, onNewNotification: (n: Notification) => void) => {
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => {
-            const n = payload.new as any;
-            onNewNotification({ id: n.id, userId: n.user_id, senderId: n.sender_id, type: n.type, message: n.message, isRead: n.is_read, createdAt: n.created_at });
-        }
-      )
-      .subscribe();
-
-    return { 
-        unsubscribe: () => {
-            supabase.removeChannel(channel);
-        }
-    };
+    return { unsubscribe: () => {} };
 };
 
+// --- STORAGE ---
 export const uploadAttachment = async (file: File): Promise<string | null> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, file);
-
-    if (uploadError) {
-        console.error('Error uploading file:', uploadError);
-        return null;
-    }
-
-    const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
-    return data.publicUrl;
+    await delay(1000); // Fake upload time
+    // Return a fake placeholder image to verify UI works
+    return "https://via.placeholder.com/600x800.png?text=Demo+Attachment";
 };

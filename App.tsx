@@ -29,7 +29,8 @@ import {
     fetchMonthlyReports, upsertMonthlyReport,
     fetchGlobalLock,
     fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead, createNotification,
-    subscribeToPresence, subscribeToNotifications
+    subscribeToPresence, subscribeToNotifications,
+    resetDemoData // IMPORT NEW FUNCTION
 } from './services/supabase';
 
 const getCurrentMonth = () => {
@@ -366,7 +367,7 @@ const App: React.FC = () => {
           <div className="flex items-center justify-center min-h-screen bg-[#f3f4f6]">
               <div className="flex flex-col items-center gap-4">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                  <p className="text-gray-500 font-medium animate-pulse">Načítám docházku...</p>
+                  <p className="text-gray-500 font-medium animate-pulse">Startuji DEMO...</p>
               </div>
           </div>
       );
@@ -374,6 +375,22 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f3f4f6]">
+        {/* DEMO BANNER */}
+        <div className="fixed top-0 left-0 right-0 h-1 z-[100] bg-gradient-to-r from-orange-400 via-red-500 to-orange-400"></div>
+        <div className="fixed bottom-4 left-4 z-[50]">
+            <button 
+                onClick={() => {
+                    if(window.confirm("Opravdu chcete smazat všechna data a resetovat demo do výchozího stavu?")) {
+                        resetDemoData();
+                    }
+                }}
+                className="bg-slate-900 text-white text-xs px-3 py-1.5 rounded-full shadow-lg opacity-50 hover:opacity-100 transition-opacity flex items-center gap-2 border border-slate-700"
+            >
+                <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                DEMO REŽIM (Reset)
+            </button>
+        </div>
+
       <Sidebar 
         activeTab={activeTab} setActiveTab={setActiveTab} installPrompt={installPrompt} onInstall={handleInstallClick}
         currentUser={currentUser} employees={activeEmployees} onRequestSwitchUser={handleRequestSwitchUser} 
@@ -383,17 +400,15 @@ const App: React.FC = () => {
       {/* Mobile Header with User Switcher */}
       <div className="md:hidden bg-slate-900 text-white p-4 pt-[env(safe-area-inset-top,20px)] flex justify-between items-center sticky top-0 z-30 shadow-md">
         <button onClick={() => setIsAboutOpen(true)} className="flex items-center gap-2">
-           <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 30 L40 75 L60 30 L80 75 L100 30" stroke="white" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round"/>
-             </svg>
+           <div className="w-8 h-8 bg-orange-600 rounded flex items-center justify-center">
+              <span className="font-bold text-xs">DEMO</span>
            </div>
            <div className="flex flex-col">
              <div className="flex items-baseline gap-1">
                 <h1 className="font-bold text-lg leading-none">Chytrá</h1>
                 <span className="text-[9px] text-slate-400">v1.5.6</span>
              </div>
-             <span className="text-[10px] text-indigo-300 font-bold leading-none">DOCHÁZKA</span>
+             <span className="text-[10px] text-orange-300 font-bold leading-none">DOCHÁZKA</span>
            </div>
         </button>
         <div className="flex items-center gap-2">
